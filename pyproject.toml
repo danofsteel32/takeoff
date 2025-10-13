@@ -33,6 +33,12 @@ dev = [
     "ruff>=0.14.0",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
 [tool.mypy]
 files = ["src"]
 disallow_untyped_defs = true
