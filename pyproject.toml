@@ -1,0 +1,32 @@
+[project]
+name = "takeoff"
+version = "0.1.0"
+description = "Create material takeoffs"
+readme = "README.md"
+authors = [
+    { name = "danofsteel32", email = "dan@dandavis.dev" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "attrs>=25.4.0",
+    "cattrs>=25.3.0",
+    "click>=8.3.0",
+    "instructor[google-genai]>=1.11.3",
+    "pillow>=11.3.0",
+    "pymupdf>=1.26.4",
+    "sqlalchemy>=2.0.44",
+]
+
+[project.scripts]
+takeoff = "takeoff:cli.takeoff"
+
+[build-system]
+requires = ["uv_build>=0.8.11,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipython>=9.6.0",
+    "mypy>=1.18.2",
+    "ruff>=0.14.0",
+]
