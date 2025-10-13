@@ -6,7 +6,7 @@ import click
 from . import pdf
 
 
-def setup_logging(level: int, log_file: Path | None = None):
+def setup_logging(level: int, log_file: Path | None = None) -> None:
     root_logger = logging.getLogger()
     # It's good practice to clear existing handlers to avoid duplicates
     # if this function is called multiple times (e.g., in testing).
@@ -34,7 +34,7 @@ def setup_logging(level: int, log_file: Path | None = None):
             file_handler.setLevel(logging.DEBUG)  # File usually logs everything
             root_logger.addHandler(file_handler)
             print(f"Logging to file: {log_file}")
-        except IOError as e:
+        except OSError as e:
             print(f"Could not open log file {log_file}: {e}")
             # Fallback: Just log to console if file logging fails
             pass
@@ -46,7 +46,7 @@ def setup_logging(level: int, log_file: Path | None = None):
 @click.option(
     "--log-file", type=click.Path(dir_okay=False, writable=True, path_type=Path)
 )
-def takeoff(blueprint: Path, verbose: int, log_file: Path | None = None):
+def takeoff(blueprint: Path, verbose: int, log_file: Path | None = None) -> None:
     if verbose == 1:
         level = logging.INFO
     elif verbose >= 2:
@@ -56,3 +56,5 @@ def takeoff(blueprint: Path, verbose: int, log_file: Path | None = None):
 
     setup_logging(level, log_file)
     pages = pdf.process(blueprint)
+    for _ in pages:
+        pass
