@@ -8,13 +8,13 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "attrs>=25.4.0",
-    "cattrs>=25.3.0",
+    # "attrs>=25.4.0",
+    # "cattrs>=25.3.0",
     "click>=8.3.0",
-    "instructor[google-genai]>=1.11.3",
-    "pillow>=11.3.0",
+    # "instructor[google-genai]>=1.11.3",
+    # "pillow>=11.3.0",
     "pymupdf>=1.26.4",
-    "sqlalchemy>=2.0.44",
+    # "sqlalchemy>=2.0.44",
 ]
 
 [project.scripts]
@@ -26,7 +26,66 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "deptry>=0.23.1",
     "ipython>=9.6.0",
     "mypy>=1.18.2",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
     "ruff>=0.14.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.mypy]
+files = ["src"]
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E", "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # pyupgrade
+    "UP",
+    # ruff
+    "RUF",
+    # tryceratops
+    "TRY",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]

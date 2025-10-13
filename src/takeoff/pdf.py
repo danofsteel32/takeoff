@@ -1,14 +1,15 @@
 import logging
 from pathlib import Path
 
-import fitz  # PyMuPDF
+# import fitz  # PyMuPDF
+import pymupdf as fitz  # type: ignore[import-untyped]
 
 DPI = 150
 
 logger = logging.getLogger(__name__)
 
 
-def process(path: Path):
+def process(path: Path) -> list[dict]:
     logger.debug("BEGIN processing %s ...", path.name)
 
     doc = fitz.open(path)
