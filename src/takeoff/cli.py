@@ -55,5 +55,8 @@ def takeoff(blueprint: Path, verbose: int, log_file: Path | None = None) -> None
         level = logging.WARNING
 
     setup_logging(level, log_file)
-    processed_pdf = pdf.process(blueprint)
-    pdf.store(processed_pdf)
+    try:
+        processed_pdf = pdf.load(blueprint)
+    except FileNotFoundError:
+        processed_pdf = pdf.process(blueprint)
+        pdf.store(processed_pdf)
