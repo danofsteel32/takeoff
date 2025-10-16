@@ -55,6 +55,5 @@ def takeoff(blueprint: Path, verbose: int, log_file: Path | None = None) -> None
         level = logging.WARNING
 
     setup_logging(level, log_file)
-    pages = pdf.process(blueprint)
-    for _ in pages:
-        pass
+    processed_pdf = pdf.process(blueprint)
+    pdf.store(processed_pdf)
