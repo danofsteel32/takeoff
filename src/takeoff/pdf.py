@@ -1,10 +1,11 @@
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 import pymupdf as fitz  # type: ignore[import-untyped]
 from attrs import define
-from cattrs.preconf.json import make_converter
+from cattrs.preconf.json import JsonConverter, make_converter
 
 from .utils import get_sha256sum
 
@@ -47,27 +48,63 @@ class ProcessedPDF:
 
 
 @define
-class StorageBackend:
-    """Saves the text and images extracted from a PDF to the filesystem.
+class PageImage:
+    pix: fitz.Pixmap
 
-    Each sheet has at least 2 files, the text in a json file and the sheet
-    rendered as an image. More text and image crops will be created as needed.
+
+def make_unstructure_pixmap_hook(image_dir: Path) -> Callable:
+    """
+    Factory to create an unstructure hook that saves Pixmaps to a directory.
+    """
+    # Create the directory if it doesn't exist
+
+    def _unstructure_pixmap(pix: fitz.Pixmap) -> str:
+        """The actual unstructure hook."""
+
+        # 1. Generate a unique filename
+        digest: bytes = pix.digest
+        filename = f"{digest.hex()}.png"
+        full_path = image_dir / filename
+
+        # 2. Save the pixmap to the file
+        pix.save(full_path)
+        logger.debug("Saved image %s", full_path)
+
+        # 3. Return the filename (relative path) to be stored in the data
+        return filename
+
+    return _unstructure_pixmap
+
+
+def make_structure_pixmap_hook(image_dir: Path) -> Callable:
+    """
+    Factory to create a structure hook that loads Pixmaps from a directory.
     """
 
-    directory: Path
+    def _structure_pixmap(path_str: str, cl: type) -> fitz.Pixmap:
+        """The actual structure hook."""
+
+        # 1. Reconstruct the full path to the image
+        full_path = image_dir / path_str
+
+        # 2. Create the Pixmap object by loading the file
+        return fitz.Pixmap(full_path)
+
+    return _structure_pixmap
 
 
-converter = make_converter()
+def get_converter(directory: Path) -> JsonConverter:
+    converter = make_converter()
+    converter.register_structure_hook(
+        fitz.Pixmap, make_structure_pixmap_hook(directory)
+    )
+    converter.register_unstructure_hook(
+        fitz.Pixmap, make_unstructure_pixmap_hook(directory)
+    )
+    return converter
 
 
-@converter.register_unstructure_hook
-def pixmap_hook(pix: fitz.Pixmap) -> str:
-    """Returns md5hash of the Pixmap."""
-    digest: bytes = pix.digest
-    return digest.hex()
-
-
-def load(path: Path) -> None:
+def load(path: Path) -> ProcessedPDF:
     sha256sum = get_sha256sum(path)
     sub_dir = STORAGE_DIR / sha256sum
     logger.debug("Loading %s from %s/%s ...", path, STORAGE_DIR, sha256sum)
@@ -76,7 +113,14 @@ def load(path: Path) -> None:
         logger.debug("%s has not been processed", path)
         raise FileNotFoundError(path)
 
-    logger.info("TODO actually load the PDF")
+    with open(sub_dir / "processed_pdf.json") as f:
+        unstructured = json.load(f)
+
+    converter = get_converter(sub_dir)
+    processed_pdf = converter.structure(unstructured, ProcessedPDF)
+
+    logger.info("Loaded %s", path)
+    return processed_pdf
 
 
 def store(processed_pdf: ProcessedPDF) -> None:
@@ -89,17 +133,11 @@ def store(processed_pdf: ProcessedPDF) -> None:
         processed_pdf.sha256sum,
     )
 
-    for page in processed_pdf.pages:
-        page_dir = sub_dir / str(page.page_number)
-        page_dir.mkdir(exist_ok=True)
-        text_file = page_dir / "text.json"
-        data = converter.unstructure(page)
-        with open(text_file, "w") as f:
-            json.dump(data, f, indent=2)
-        logger.debug("Wrote %s", text_file)
-        image_file = page_dir / "image.png"
-        page.page_image.save(image_file)
-        logger.debug("Wrote %s", image_file)
+    converter = get_converter(sub_dir)
+    unstructured = converter.unstructure(processed_pdf)
+
+    with open(sub_dir / "processed_pdf.json", "w") as f:
+        json.dump(unstructured, f, indent=2)
 
     logger.info(
         "Saved %s in %s/%s",
