@@ -1,11 +1,15 @@
-import hashlib
+import json
 import logging
 from pathlib import Path
 
 import pymupdf as fitz  # type: ignore[import-untyped]
 from attrs import define
+from cattrs.preconf.json import make_converter
+
+from .utils import get_sha256sum
 
 DPI = 150
+STORAGE_DIR = Path(".cache")
 
 logger = logging.getLogger(__name__)
 
@@ -42,15 +46,67 @@ class ProcessedPDF:
     pages: list[ProcessedPage]
 
 
-def get_sha256sum(path: Path, chunk_size: int = 65536) -> str:
-    hasher = hashlib.sha256()
-    with open(path, "rb") as f:
-        while True:
-            chunk = f.read(chunk_size)
-            if not chunk:
-                break
-            hasher.update(chunk)
-    return hasher.hexdigest()
+@define
+class StorageBackend:
+    """Saves the text and images extracted from a PDF to the filesystem.
+
+    Each sheet has at least 2 files, the text in a json file and the sheet
+    rendered as an image. More text and image crops will be created as needed.
+    """
+
+    directory: Path
+
+
+converter = make_converter()
+
+
+@converter.register_unstructure_hook
+def pixmap_hook(pix: fitz.Pixmap) -> str:
+    """Returns md5hash of the Pixmap."""
+    digest: bytes = pix.digest
+    return digest.hex()
+
+
+def load(path: Path) -> None:
+    sha256sum = get_sha256sum(path)
+    sub_dir = STORAGE_DIR / sha256sum
+    logger.debug("Loading %s from %s/%s ...", path, STORAGE_DIR, sha256sum)
+
+    if not sub_dir.exists():
+        logger.debug("%s has not been processed", path)
+        raise FileNotFoundError(path)
+
+    logger.info("TODO actually load the PDF")
+
+
+def store(processed_pdf: ProcessedPDF) -> None:
+    sub_dir = STORAGE_DIR / processed_pdf.sha256sum
+    sub_dir.mkdir(exist_ok=True, parents=True)
+    logger.debug(
+        "Storing %s in %s/%s",
+        processed_pdf.filename,
+        STORAGE_DIR,
+        processed_pdf.sha256sum,
+    )
+
+    for page in processed_pdf.pages:
+        page_dir = sub_dir / str(page.page_number)
+        page_dir.mkdir(exist_ok=True)
+        text_file = page_dir / "text.json"
+        data = converter.unstructure(page)
+        with open(text_file, "w") as f:
+            json.dump(data, f, indent=2)
+        logger.debug("Wrote %s", text_file)
+        image_file = page_dir / "image.png"
+        page.page_image.save(image_file)
+        logger.debug("Wrote %s", image_file)
+
+    logger.info(
+        "Saved %s in %s/%s",
+        processed_pdf.filename,
+        STORAGE_DIR,
+        processed_pdf.sha256sum,
+    )
 
 
 def process(path: Path) -> ProcessedPDF:
@@ -87,7 +143,7 @@ def process(path: Path) -> ProcessedPDF:
                 for line in block.get("lines", []):
                     for span in line.get("spans"):
                         text_block = TextBlock(
-                            text=span["text"], bbox=BBox(**span["bbox"])
+                            text=span["text"], bbox=BBox(*span["bbox"])
                         )
                         logger.debug("TextBlock('%s')", span["text"])
                         text_blocks.append(text_block)
